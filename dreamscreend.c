@@ -10,8 +10,94 @@
 #include <errno.h>
 #include <signal.h>
 #include <stdbool.h>
+#include <curl/curl.h>
 
+int red = -1, green = -1, blue = -1;
 
+char *rgb_to_hsv(double r, double g, double b) {
+	r = r/255;
+	g = g/255;
+	b = b/255;
+
+	char *values = malloc(sizeof(char)*30);
+	double hue;
+	double sat;
+	double val;
+	double color_values[3];
+
+	double max;
+	double min;
+	double delta;
+
+	// determine Cmax
+	if (r >= b && r >= g) 
+		max = r;
+	else if (g >= r && g >= b)
+		max = g;
+	else
+		max = b;
+	
+	// determine Cmin
+	if (r <= b && r <= g)
+		min = r;
+	else if (g <= r && g <= b)
+		min = g;
+	else
+		min = b;
+
+	// delta
+	delta = max - min;
+
+	// calculate hue
+	if (delta == 0)
+		hue = 0;
+	else if (max == r)
+		hue = ((int)(60*(((g-b)/delta)+6)))%360;
+	else if (max == g)
+		hue = ((int)(60*(((b-r)/delta) +2)))%360;
+	else
+		hue = ((int)(60*(((r-g)/delta)+4)))%360;
+
+	// calculate saturation
+	if (max == 0)
+		sat = 0;
+	else
+		sat = delta/max;
+
+	// calculate value
+	val = max;
+
+	sprintf(values, "%0.0f %0.3f %0.3f", hue, sat, val);
+	return values;
+}
+
+static size_t supress_response(void *buffer, size_t size, size_t nmemb, void *userp) {
+	   return size * nmemb;
+}
+
+void use_api_put(char *url, char *json) {
+	CURL *curl;
+	CURLcode res;
+	struct curl_slist *headers = NULL;
+	
+	curl = curl_easy_init();
+	if(curl) {
+		headers = curl_slist_append(headers, "Content-Type: application/json");
+
+		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+		curl_easy_setopt(curl, CURLOPT_URL, url);
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, supress_response);
+		curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "PUT");
+		curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json);
+
+		res = curl_easy_perform(curl);
+		if(res != CURLE_OK)
+			fprintf(stderr, "curl_easy_perform() failed: %s\n",
+			curl_easy_strerror(res));
+	}
+	curl_easy_cleanup(curl);
+	return;
+}
 bool volatile keep_running = true;
 
 /* Signal callback */
@@ -52,6 +138,7 @@ void assemble_packet_rgb(unsigned char packet[], unsigned char prefix[], unsigne
 }
 
 
+
 int dream() {
 	int i, sockfd, p;
 	struct sockaddr_in serveraddr;
@@ -68,6 +155,7 @@ int dream() {
 
 	/* hex codes used by Dreamscreen: https://planet.neeo.com/media/80x1kj/download/dreamscreen-v2-wifi-udp-protocol.pdf */
 	unsigned char prefix[] = { 0xFC, 0x06, 0x01, 0x11, 0x03 };
+	unsigned char special[] = { 0xFC, 0x05, 0xFF, 0x30, 0x01 };
 
 	// Commands
 	unsigned char mode = 0x01;
@@ -84,7 +172,6 @@ int dream() {
 	unsigned char mode_ambient = 0x03;
 	
 
-	int red, green, blue;
 	// Brightness Payload
 	unsigned char brightness_value = 0x0A;
 	
@@ -142,6 +229,8 @@ int dream() {
 			scanf("%d %d %d", &red, &green, &blue);
 			assemble_packet_rgb(packet_rgb, prefix, red, green, blue);
 			break;  
+		case 11:
+			assemble_packet(packet, special, 0x0A, 0x2A);
 		default:
 			bzero(packet, sizeof(packet));
         }
@@ -190,6 +279,26 @@ int dream() {
 
 
 int main(int argc, char **argv) {
+
+	char json_buffer[1000];
+	char *nanoleaf_url = "http://192.168.1.32:16021/api/v1/Wl2aru89oF8d7eket1cqqsv0fyEcgYhc/state";
+	char *hue_url = "http://192.168.1.249/api/mIi8OwbG-lHvUx7SdXEBSK2aILxguUNQOUK1Cayl/groups/1/action";
+
+	double h;
+	double s;
+	double v;	
+	char *values;
 	dream();
+	if (red != -1) {
+		values = rgb_to_hsv(red, green, blue);
+		
+		printf("%s\n", values);
+		sscanf(values, "%lf %lf %lf", &h, &s, &v);
+		sprintf(json_buffer, "{\"on\":true, \"sat\":%0.0f, \"bri\":%0.0f,\"hue\":%0.0f}", (s*255)-1, (v*255)-1, (h/360)*65535);
+		use_api_put(hue_url, json_buffer);
+		sprintf(json_buffer, "{\"on\": {\"value\":true}, \"hue\":{\"value\":%0.0f}, \"sat\":{\"value\":%0.0f}, \"brightness\":{\"value\":%0.0f}}", h, s*100, v*100);
+		use_api_put(nanoleaf_url, json_buffer);
+	}
+	
 	return 0;
 }
