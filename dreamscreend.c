@@ -34,156 +34,162 @@ unsigned char calcCRC8(unsigned char *packet) {
 
 /* packet assemblage */
 void assemble_packet(unsigned char packet[], unsigned char prefix[], unsigned char upper_command, unsigned char lower_command){
-  memcpy(packet, prefix, 5);
-  packet[5] = upper_command;
-  packet[6] = lower_command;
-  packet[7] = calcCRC8(packet);
+	memcpy(packet, prefix, 5);
+	packet[5] = upper_command;
+	packet[6] = lower_command;
+	packet[7] = calcCRC8(packet);
 }
 
 
-int dream(char *hostname, int portno) {
-
-  int i;
-
-  int sockfd, p;
-  struct sockaddr_in serveraddr;
-  struct hostent *server;
-  unsigned char packet[8];
-  struct sigaction act;
-
-  /* hex codes used by Dreamscreen: https://planet.neeo.com/media/80x1kj/download/dreamscreen-v2-wifi-udp-protocol.pdf */
-  unsigned char prefix[] = { 0xFC, 0x06, 0x01, 0x11, 0x03 };
-  unsigned char mode = 0x01;
-  unsigned char mode_sleep = 0x00;
-  unsigned char mode_video = 0x01;
-  unsigned char mode_music = 0x02;
-  unsigned char mode_ambient = 0x03;
-  unsigned char input = 0x20;
-  unsigned char input_hdmi_1 = 0x00;
-  unsigned char input_hdmi_2 = 0x01;
-  unsigned char input_hdmi_3 = 0x02;
-  unsigned char brightness = 0x02;
-  unsigned char brightness_value = 0x0A;
-	unsigned char ambient_scene = 0x0D;
-	unsigned char test = 0x04;
+void assemble_packet_rgb(unsigned char packet[], unsigned char prefix[], unsigned char red, unsigned char green, unsigned char blue) {
+	memcpy(packet, prefix, 5);
+	packet[1] = 0x08;
+	packet[5] = 0x05;
+	packet[6] = red;
+	packet[7] = green;
+	packet[8] = blue;
+	packet[9] = calcCRC8(packet);
+}
 
 
-  act.sa_handler = exit_handle;
-  sigemptyset (&act.sa_mask);
-  act.sa_flags = 0;
-  sigaction(SIGINT,  &act, 0);
-  sigaction(SIGTERM, &act, 0);
-
-
-  /* create socket */
-  sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-  if (sockfd < 0) {
-    perror("ERROR: cannot open socket");
-    exit(EXIT_FAILURE);
-  }
-
-  /* get Dreamscreen DNS entry */
-  server = gethostbyname(hostname);
-  if (server == NULL) {
-    fprintf(stderr,"ERROR: no such host as %s\n", hostname);
-    exit(EXIT_FAILURE);
-  }
-
-  /* build Dreamscreen address */
-  bzero((char *) &serveraddr, sizeof(serveraddr));
-  serveraddr.sin_family = AF_INET;
-  bcopy((char *)server->h_addr,
-  (char *)&serveraddr.sin_addr.s_addr, server->h_length);
-  serveraddr.sin_port = htons(portno);
+int dream() {
+	int i, sockfd, p;
+	struct sockaddr_in serveraddr;
+	struct hostent *server;
+	unsigned char packet[8];
+	unsigned char packet_rgb[10];
+	struct sigaction act;
 	
-	int choice;
-	printf("Enter option:\n");
-	scanf("%d", &choice);
+	int choice;	
+	char *hostname;
+	char *addresses[] = { "192.168.1.37", "192.168.1.161", "192.168.1.104" };
+	int members = 3;
+	int portno = 8888;
+
+	/* hex codes used by Dreamscreen: https://planet.neeo.com/media/80x1kj/download/dreamscreen-v2-wifi-udp-protocol.pdf */
+	unsigned char prefix[] = { 0xFC, 0x06, 0x01, 0x11, 0x03 };
+
+	// Commands
+	unsigned char mode = 0x01;
+	unsigned char brightness = 0x02;
+	unsigned char ambient_color = 0x05;
+	unsigned char ambient_mode_type = 0x08;
+	unsigned char ambient_scene = 0x0D;
+	unsigned char input = 0x20;
+	
+	// Mode Payloads
+	unsigned char mode_sleep = 0x00;
+	unsigned char mode_video = 0x01;
+	unsigned char mode_music = 0x02;
+	unsigned char mode_ambient = 0x03;
+	
+
+	int red, green, blue;
+	// Brightness Payload
+	unsigned char brightness_value = 0x0A;
+	
+	// Ambient Scenes
+	unsigned char test = 0x04;
+	
+	// Options for Input
+	unsigned char input_hdmi_1 = 0x00;
+	unsigned char input_hdmi_2 = 0x01;
+	unsigned char input_hdmi_3 = 0x02;
+
+
+	printf("Enter option number: ");
+	if(scanf("%d", &choice) == 0)
+		return -1;
+       
 	switch(choice) {
-          case 1:
-            assemble_packet(packet, prefix, mode, mode_sleep);
-            break;
-
-          case 2:
-            assemble_packet(packet, prefix, mode, mode_video);
-            break;
-
-          case 3:
-            assemble_packet(packet, prefix, mode, mode_music);
-            break;
-
-          case 4:
-            assemble_packet(packet, prefix, mode, mode_ambient);
-            break;
-
-          case 5:
-            assemble_packet(packet, prefix, input, input_hdmi_1);
-            break;
-
-          case 6:
-            assemble_packet(packet, prefix, input, input_hdmi_2);
-            break;
-
-          case 7:
-            assemble_packet(packet, prefix, input, input_hdmi_3);
-            break;
-
-          case 8:
-            brightness_value = brightness_value + 10;
-            if (brightness_value > 100)
-              brightness_value = 10;
-
-            assemble_packet(packet, prefix, brightness, brightness_value);
-            break;
-
-          case 9:
-            if (brightness_value >= 20)
-              brightness_value = brightness_value - 10;
-            else
-              brightness_value = 100;
-
-            assemble_packet(packet, prefix, brightness, brightness_value);
-            break;
-	case 10:
-		assemble_packet(packet, prefix, ambient_scene, test);
-        	break;  
-	default:
-            bzero(packet, sizeof(packet));
+		case 1:
+			assemble_packet(packet, prefix, mode, mode_sleep);
+			break;
+		case 2:
+			assemble_packet(packet, prefix, mode, mode_video);
+			break;
+		case 3:
+			assemble_packet(packet, prefix, mode, mode_music);
+			break;
+		case 4:
+			assemble_packet(packet, prefix, mode, mode_ambient);
+			break;
+		case 5:
+			assemble_packet(packet, prefix, input, input_hdmi_1);
+			break;
+		case 6:
+			assemble_packet(packet, prefix, input, input_hdmi_2);
+			break;
+		case 7:
+			assemble_packet(packet, prefix, input, input_hdmi_3);
+			break;
+		case 8:
+			brightness_value = brightness_value + 10;
+			if (brightness_value > 100)
+				brightness_value = 10;
+			assemble_packet(packet, prefix, brightness, brightness_value);
+			break;
+		case 9:
+			if (brightness_value >= 20)
+				brightness_value = brightness_value - 10;
+			else
+				brightness_value = 100;
+			assemble_packet(packet, prefix, brightness, brightness_value);
+			break;
+		case 10:
+			assemble_packet(packet, prefix, mode, mode_ambient);
+			printf("Enter RGB Values: ");
+			scanf("%d %d %d", &red, &green, &blue);
+			assemble_packet_rgb(packet_rgb, prefix, red, green, blue);
+			break;  
+		default:
+			bzero(packet, sizeof(packet));
         }
 
-      /* send packet to Dreamscreen */
-      if (packet[0] == 0xFC) {
+	for (i = 0; i < members; i++) {
+	hostname = addresses[i];
+	act.sa_handler = exit_handle;
+	sigemptyset (&act.sa_mask);
+	act.sa_flags = 0;
+	sigaction(SIGINT,  &act, 0);
+	sigaction(SIGTERM, &act, 0);
+	
+	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+	if (sockfd < 0) {
+		perror("ERROR: cannot open socket");
+		exit(EXIT_FAILURE);
+	}
+	
+	/* get Dreamscreen DNS entry */
+	server = gethostbyname(hostname);
+	if (server == NULL) {
+		fprintf(stderr,"ERROR: no such host as %s\n", hostname);
+		exit(EXIT_FAILURE);
+	}
 
-          /* print packet */
-          printf("Packet:\t");
-          for (i = 0; i < sizeof(packet); i++){
-            printf("0x%02X ", packet[i]);
-          }
-          printf("\n");
+	
+	assemble_packet_rgb(packet_rgb, prefix, red, green, blue);
+	/* build Dreamscreen address */
+	bzero((char *) &serveraddr, sizeof(serveraddr));
+	serveraddr.sin_family = AF_INET;
+	bcopy((char *)server->h_addr,
+	(char *)&serveraddr.sin_addr.s_addr, server->h_length);
+	serveraddr.sin_port = htons(portno);
 
-        p = sendto(sockfd, packet, sizeof(packet), 0, (struct sockaddr *) &serveraddr, sizeof(serveraddr));
-        if (p < 0)
-          perror("ERROR: in sendto");
-      }
-
-  printf("Exiting...\n");
-  fflush(stdout);
-  close(sockfd);
-
-  return 0;
+	/* send packet to Dreamscreen */
+	p = sendto(sockfd, packet, sizeof(packet), 0, (struct sockaddr *) &serveraddr, sizeof(serveraddr));	
+	if (choice == 10) 
+		p = sendto(sockfd, packet_rgb, sizeof(packet_rgb), 0, (struct sockaddr *) &serveraddr, sizeof(serveraddr));	
+	if (p < 0)
+		perror("ERROR: in sendto");
+	fflush(stdout);
+	close(sockfd);
+	}
+	return 0;
 }
 
 
 int main(int argc, char **argv) {
-	char *ip;
-	int port;
-	if (argc != 3) {
-    		fprintf(stderr, "Usage: %s <hostname> <port>\n", argv[0]);
-    		fprintf(stderr, "Example: %s 192.168.1.161 8888\n", argv[0]);
-    		exit(EXIT_FAILURE);
-  	}
-	ip = argv[1];
-	port = atoi(argv[2]);
-	dream(ip, port);
+	dream();
 	return 0;
 }

@@ -1,15 +1,14 @@
 CC=gcc
-CFLAGS=-Wall -Werror -O2
 
 default: dreamscreend
 debug: CFLAGS += -DDEBUG
 debug: dreamscreend
 
 dreamscreend.o: dreamscreend.c
-	$(CC) $(CFLAGS) -c dreamscreend.c -o dreamscreend.o
+	$(CC) -c dreamscreend.c -o dreamscreend.o
 
 dreamscreend: dreamscreend.o
-	$(CC) $(CFLAGS) dreamscreend.o -o dreamscreend
+	$(CC) dreamscreend.o -o dreamscreend
 
 clean:
 	-rm -f dreamscreend.o
