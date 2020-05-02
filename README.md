@@ -10,13 +10,13 @@ This program is aimed at controlling all the features of the DreamScreen from a 
 # Resources
 
 ## General Help
-- [PUT Discussionl](https://stackoverflow.com/questions/7569826/send-string-in-put-request-with-libcurl)
+- [PUT Discussion](https://stackoverflow.com/questions/7569826/send-string-in-put-request-with-libcurl)
 - [PUT Example Code](https://curl.haxx.se/libcurl/c/httpput.html)
-- [Header Example](https://curl.haxx.se/libcurl/c/httpcustomheader.html)
+- [Header Example Code](https://curl.haxx.se/libcurl/c/httpcustomheader.html)
 - [RGB to HSV Conversion](https://www.rapidtables.com/convert/color/rgb-to-hsv.html)
 
 ## DreamSceen
-- [Inspiring Project](https://github.com/cboyer/dreamscreen-daemon);
+- [Inspiring Project](https://github.com/cboyer/dreamscreen-daemon)
 - [Protocol Specifications (v4)](https://community.getvera.com/uploads/default/original/3X/f/c/fc0bccb95282ad1bc7c4a4236740a840641a6de4.pdf)
 
 
