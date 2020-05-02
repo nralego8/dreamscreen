@@ -16,7 +16,6 @@ Licensed under GPLv3
 #include <errno.h>
 #include <signal.h>
 #include <stdbool.h>
-#include "key_mapping.h"
 
 
 bool volatile keep_running = true;
@@ -52,24 +51,17 @@ void assemble_packet(unsigned char packet[], unsigned char prefix[], unsigned ch
 
 int main(int argc, char **argv) {
 
-  #ifdef DEBUG
-    static const char *const evval[] = { "released", "pressed", "repeated" };
-    int i;
-  #endif
+  int i;
 
-  char *dev;
-  struct input_event ev;
-  ssize_t n;
-  int fd, sockfd, portno, p;
+  int sockfd, portno, p;
   struct sockaddr_in serveraddr;
   struct hostent *server;
   char *hostname;
   unsigned char packet[8];
-  bool combination = false;
   struct sigaction act;
 
   /* hex codes used by Dreamscreen: https://planet.neeo.com/media/80x1kj/download/dreamscreen-v2-wifi-udp-protocol.pdf */
-  unsigned char prefix[] = { 0xFC, 0x06, 0x00, 0x11, 0x03 };
+  unsigned char prefix[] = { 0xFC, 0x06, 0x01, 0x11, 0x03 };
   unsigned char mode = 0x01;
   unsigned char mode_sleep = 0x00;
   unsigned char mode_video = 0x01;
@@ -81,12 +73,13 @@ int main(int argc, char **argv) {
   unsigned char input_hdmi_3 = 0x02;
   unsigned char brightness = 0x02;
   unsigned char brightness_value = 0x0A;
+	unsigned char ambient_scene = 0x0D;
+	unsigned char test = 0x03;
 
   /* check command line arguments */
-  if (argc != 4) {
-    fprintf(stderr, "Usage: %s <hostname> <port> <input>\n", argv[0]);
-    fprintf(stderr, "Example: %s 192.168.0.22 8888 /dev/input/event3\n", argv[0]);
-    fprintf(stderr, "Tips: find working input with: cat /dev/input/eventX | hexdump\n\n");
+  if (argc != 3) {
+    fprintf(stderr, "Usage: %s <hostname> <port>\n", argv[0]);
+    fprintf(stderr, "Example: %s 192.168.1.161 8888\n", argv[0]);
     exit(EXIT_FAILURE);
   }
 
@@ -98,14 +91,6 @@ int main(int argc, char **argv) {
 
   hostname = argv[1];
   portno = atoi(argv[2]);
-  dev = argv[3];
-
-  /* open keyboard input */
-  fd = open(dev, O_RDONLY);
-  if (fd == -1) {
-    fprintf(stderr, "ERROR: cannot open %s: %s.\n", dev, strerror(errno));
-    exit(EXIT_FAILURE);
-  }
 
   /* create socket */
   sockfd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -127,69 +112,40 @@ int main(int argc, char **argv) {
   bcopy((char *)server->h_addr,
   (char *)&serveraddr.sin_addr.s_addr, server->h_length);
   serveraddr.sin_port = htons(portno);
-
-  /* main loop, read keyboard input */
-  while (keep_running) {
-    n = read(fd, &ev, sizeof ev);
-    if (n == (ssize_t)-1) {
-      if (errno == EINTR)
-        continue;
-      else
-        break;
-    }
-    else
-    if (n != sizeof ev) {
-      errno = EIO;
-      break;
-    }
-
-    bzero(packet, sizeof(packet));
-
-    /* build packet */
-    if (ev.type == EV_KEY && ev.value >= 0 && ev.value < 2) {
-
-      /* print pressed key */
-      #ifdef DEBUG
-        printf("Key:\t%s 0x%02X (%d)\n", evval[ev.value], (int)ev.code, (int)ev.code);
-      #endif
-
-      if (ev.code == DS_COMBINATION_KEY && ev.value == 1)
-        combination = true;
-
-      if (ev.code == DS_COMBINATION_KEY && ev.value == 0)
-        combination = false;
-
-      if (combination && ev.value == 1) {
-        switch(ev.code) {
-          case DS_KEY_MODE_SLEEP:
+	
+	int choice;
+	printf("Enter option:\n");
+	scanf("%d", &choice);
+	switch(choice) {
+          case 1:
             assemble_packet(packet, prefix, mode, mode_sleep);
             break;
 
-          case DS_KEY_MODE_VIDEO:
+          case 2:
             assemble_packet(packet, prefix, mode, mode_video);
             break;
 
-          case DS_KEY_MODE_MUSIC:
+          case 3:
             assemble_packet(packet, prefix, mode, mode_music);
             break;
 
-          case DS_KEY_MODE_AMBIENT:
+          case 4:
             assemble_packet(packet, prefix, mode, mode_ambient);
             break;
 
-          case DS_KEY_INPUT_HDMI_1:
+          case 5:
             assemble_packet(packet, prefix, input, input_hdmi_1);
             break;
 
-          case DS_KEY_INPUT_HDMI_2:
+          case 6:
             assemble_packet(packet, prefix, input, input_hdmi_2);
             break;
 
-          case DS_KEY_INPUT_HDMI_3:
+          case 7:
             assemble_packet(packet, prefix, input, input_hdmi_3);
             break;
 
-          case DS_KEY_BRIGHTNESS_VALUE_UP:
+          case 8:
             brightness_value = brightness_value + 10;
             if (brightness_value > 100)
               brightness_value = 10;
@@ -197,7 +153,7 @@ int main(int argc, char **argv) {
             assemble_packet(packet, prefix, brightness, brightness_value);
             break;
 
-          case DS_KEY_BRIGHTNESS_VALUE_DOWN:
+          case 9:
             if (brightness_value >= 20)
               brightness_value = brightness_value - 10;
             else
@@ -205,35 +161,31 @@ int main(int argc, char **argv) {
 
             assemble_packet(packet, prefix, brightness, brightness_value);
             break;
-
-          default:
+	case 10:
+		assemble_packet(packet, prefix, ambient_scene, test);
+        	break;  
+	default:
             bzero(packet, sizeof(packet));
         }
-      }
 
       /* send packet to Dreamscreen */
       if (packet[0] == 0xFC) {
 
-        #ifdef DEBUG
           /* print packet */
           printf("Packet:\t");
           for (i = 0; i < sizeof(packet); i++){
             printf("0x%02X ", packet[i]);
           }
           printf("\n");
-        #endif
 
         p = sendto(sockfd, packet, sizeof(packet), 0, (struct sockaddr *) &serveraddr, sizeof(serveraddr));
         if (p < 0)
           perror("ERROR: in sendto");
       }
-    }
-  }
 
   printf("Exiting...\n");
   fflush(stdout);
   close(sockfd);
-  close(fd);
 
   return 0;
 }
