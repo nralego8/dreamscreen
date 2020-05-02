@@ -1,4 +1,4 @@
-# Dreamscreen
+# DreamScreen Control
 
 This program is aimed at controlling all the features of the DreamScreen from a C program.
 
