@@ -49,14 +49,13 @@ void assemble_packet(unsigned char packet[], unsigned char prefix[], unsigned ch
 }
 
 
-int main(int argc, char **argv) {
+int dream(char *hostname, int portno) {
 
   int i;
 
-  int sockfd, portno, p;
+  int sockfd, p;
   struct sockaddr_in serveraddr;
   struct hostent *server;
-  char *hostname;
   unsigned char packet[8];
   struct sigaction act;
 
@@ -74,14 +73,8 @@ int main(int argc, char **argv) {
   unsigned char brightness = 0x02;
   unsigned char brightness_value = 0x0A;
 	unsigned char ambient_scene = 0x0D;
-	unsigned char test = 0x03;
+	unsigned char test = 0x04;
 
-  /* check command line arguments */
-  if (argc != 3) {
-    fprintf(stderr, "Usage: %s <hostname> <port>\n", argv[0]);
-    fprintf(stderr, "Example: %s 192.168.1.161 8888\n", argv[0]);
-    exit(EXIT_FAILURE);
-  }
 
   act.sa_handler = exit_handle;
   sigemptyset (&act.sa_mask);
@@ -89,8 +82,6 @@ int main(int argc, char **argv) {
   sigaction(SIGINT,  &act, 0);
   sigaction(SIGTERM, &act, 0);
 
-  hostname = argv[1];
-  portno = atoi(argv[2]);
 
   /* create socket */
   sockfd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -188,4 +179,19 @@ int main(int argc, char **argv) {
   close(sockfd);
 
   return 0;
+}
+
+
+int main(int argc, char **argv) {
+	char *ip;
+	int port;
+	if (argc != 3) {
+    		fprintf(stderr, "Usage: %s <hostname> <port>\n", argv[0]);
+    		fprintf(stderr, "Example: %s 192.168.1.161 8888\n", argv[0]);
+    		exit(EXIT_FAILURE);
+  	}
+	ip = argv[1];
+	port = atoi(argv[2]);
+	dream(ip, port);
+	return 0;
 }
