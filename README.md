@@ -22,6 +22,7 @@ This program is aimed at controlling all the features of the DreamScreen from a 
 
 ## Phillips Hue
 - [Getting Started](https://developers.meethue.com/develop/get-started-2/)
+- [xy and Hue](https://stackoverflow.com/questions/22564187/rgb-to-philips-hue-hsb)
 
 ## Nanoleaf
 - [Basic Documentation](https://documenter.getpostman.com/view/1559645/RW1gEcCH?version=latest)

@@ -11,24 +11,65 @@
 #include <signal.h>
 #include <stdbool.h>
 #include <curl/curl.h>
+#include <math.h>
 
-int red = -1, green = -1, blue = -1;
+int red = -1;
+int green;
+int blue;
 
-char *rgb_to_hsv(double r, double g, double b) {
+
+#include <stdio.h>
+#include <math.h>
+
+void rgb_to_xy(double red, double green, double blue) {
+	double normalized[3];
+	
+	normalized[0] = red/255;
+	normalized[1] = green/255;
+	normalized[2] = blue/255;
+	
+	if (normalized[0] > 0.04045)
+		red = (double)pow((normalized[0] + 0.055) / (1.0 + 0.055), 2.4);
+	else
+		red = (double)(normalized[0] / 12.92);
+	
+	if (normalized[1] > 0.04045)
+		green = (double)pow((normalized[1] + 0.055) / (1.0 + 0.005), 2.4);
+	else
+		green = (double)(normalized[1] / 12.92);
+
+	if (normalized[2] > 0.04045)
+		blue = (double)pow((normalized[2] + 0.055) / (1.0 + 0.005), 2.4);
+	else
+		blue = (double)(normalized[2] / 12.92);
+
+	double X = (double) (red * 0.649926 + green * 0.103455 + blue * 0.197109);
+	double Y = (double) (red * 0.234327 + green * 0.743075 + blue * 0.022598);
+	double Z = (double) (red * 0.000000 + green * 0.053077 + blue * 1.035763);
+
+	double x = X / (X + Y + Z);
+	double y = Y / (X + Y + Z);
+}	
+
+	
+
+char *rgb_convert(double r, double g, double b) {
 	r = r/255;
 	g = g/255;
 	b = b/255;
 
-	char *values = malloc(sizeof(char)*30);
 	double hue;
 	double sat;
 	double val;
-	double color_values[3];
 
-	double max;
-	double min;
-	double delta;
+	double max, min, delta;
 
+	double X, Y, Z;
+	double x, y;
+
+	char *values = malloc(sizeof(char)*40);
+	
+	/* CALCULATE HSV */
 	// determine Cmax
 	if (r >= b && r >= g) 
 		max = r;
@@ -67,7 +108,31 @@ char *rgb_to_hsv(double r, double g, double b) {
 	// calculate value
 	val = max;
 
-	sprintf(values, "%0.0f %0.3f %0.3f", hue, sat, val);
+	/* CALCULATE XY */	
+	if (r > 0.04045)
+		r = (double)pow((r + 0.055) / (1.0 + 0.055), 2.4);
+	else
+		r = (double)(r / 12.92);
+	
+	if (g > 0.04045)
+		g = (double)pow((g + 0.055) / (1.0 + 0.005), 2.4);
+	else
+		g = (double)(g / 12.92);
+
+	if (b > 0.04045)
+		b = (double)pow((b + 0.055) / (1.0 + 0.005), 2.4);
+	else
+		b = (double)(b / 12.92);
+
+	X = (double) (r * 0.649926 + g * 0.103455 + b * 0.197109);
+	Y = (double) (r * 0.234327 + g * 0.743075 + b * 0.022598);
+	Z = (double) (r * 0.000000 + g * 0.053077 + b * 1.035763);
+
+	x = X / (X + Y + Z);
+	y = Y / (X + Y + Z);
+
+
+	sprintf(values, "%0.0f %0.3f %0.3f %0.04f %0.04f", hue, sat, val, x, y);
 	return values;
 }
 
@@ -284,17 +349,15 @@ int main(int argc, char **argv) {
 	char *nanoleaf_url = "http://192.168.1.32:16021/api/v1/Wl2aru89oF8d7eket1cqqsv0fyEcgYhc/state";
 	char *hue_url = "http://192.168.1.249/api/mIi8OwbG-lHvUx7SdXEBSK2aILxguUNQOUK1Cayl/groups/1/action";
 
-	double h;
-	double s;
-	double v;	
+	double h, s, v, x, y;	
+	int shift;
 	char *values;
 	dream();
 	if (red != -1) {
-		values = rgb_to_hsv(red, green, blue);
-		
-		printf("%s\n", values);
-		sscanf(values, "%lf %lf %lf", &h, &s, &v);
-		sprintf(json_buffer, "{\"on\":true, \"sat\":%0.0f, \"bri\":%0.0f,\"hue\":%0.0f}", (s*255)-1, (v*255)-1, (h/360)*65535);
+		values = rgb_convert(red, green, blue);
+		sscanf(values, "%lf %lf %lf %lf %lf", &h, &s, &v, &x, &y);
+		//sprintf(json_buffer, "{\"on\":true, \"sat\":%0.0f, \"bri\":%0.0f, \"xy\":[%0.4f, %0.4f]}", (s*255)-1, (v*255)-1, x, y);
+		sprintf(json_buffer, "{\"on\":true, \"sat\":%0.0f, \"bri\":%0.0f, \"hue\":%0.0f}", (s*255)-1, (v*255)-1, (h/360)*65535);
 		use_api_put(hue_url, json_buffer);
 		sprintf(json_buffer, "{\"on\": {\"value\":true}, \"hue\":{\"value\":%0.0f}, \"sat\":{\"value\":%0.0f}, \"brightness\":{\"value\":%0.0f}}", h, s*100, v*100);
 		use_api_put(nanoleaf_url, json_buffer);

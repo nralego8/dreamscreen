@@ -5,10 +5,10 @@ debug: CFLAGS += -DDEBUG
 debug: dreamscreend
 
 dreamscreend.o: dreamscreend.c
-	$(CC) -c dreamscreend.c -o dreamscreend.o -lcurl
+	$(CC) -c dreamscreend.c -o dreamscreend.o -lcurl -lm
 
 dreamscreend: dreamscreend.o
-	$(CC) dreamscreend.o -o dreamscreend -lcurl
+	$(CC) dreamscreend.o -o dreamscreend -lcurl -lm
 
 clean:
 	-rm -f dreamscreend.o
