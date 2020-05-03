@@ -205,7 +205,7 @@ void assemble_packet_rgb(unsigned char packet[], unsigned char prefix[], unsigne
 
 
 int dream() {
-	int i, sockfd, p;
+	int i, j, sockfd, p;
 	struct sockaddr_in serveraddr;
 	struct hostent *server;
 	unsigned char packet[8];
@@ -220,7 +220,8 @@ int dream() {
 
 	/* hex codes used by Dreamscreen: https://planet.neeo.com/media/80x1kj/download/dreamscreen-v2-wifi-udp-protocol.pdf */
 	unsigned char prefix[] = { 0xFC, 0x06, 0x01, 0x11, 0x03 };
-	unsigned char special[] = { 0xFC, 0x05, 0xFF, 0x30, 0x01 };
+	unsigned char special[] = { 0xFC, 0x06, 0x01, 0x21, 0x01 };
+	unsigned char phone_home[] = { 0xFC, 0x05, 0xFF, 0x30, 0x01, 0x0A, 0x2A};
 
 	// Commands
 	unsigned char mode = 0x01;
@@ -295,10 +296,22 @@ int dream() {
 			assemble_packet_rgb(packet_rgb, prefix, red, green, blue);
 			break;  
 		case 11:
-			assemble_packet(packet, special, 0x0A, 0x2A);
+			assemble_packet(packet, special, 0x0C, 0x01);
+			break;
 		default:
 			bzero(packet, sizeof(packet));
-        }
+	}
+
+	for (j = 0; j < sizeof(packet); j++){
+		printf("0x%02X ", packet[j]);
+	}
+	printf("\n");
+
+	if (choice == 10)
+		for (j = 0; j < sizeof(packet_rgb); j++){
+			printf("0x%02X ", packet_rgb[j]);
+		}
+		printf("\n");
 
 	for (i = 0; i < members; i++) {
 	hostname = addresses[i];
@@ -321,19 +334,22 @@ int dream() {
 		exit(EXIT_FAILURE);
 	}
 
-	
-	assemble_packet_rgb(packet_rgb, prefix, red, green, blue);
 	/* build Dreamscreen address */
 	bzero((char *) &serveraddr, sizeof(serveraddr));
 	serveraddr.sin_family = AF_INET;
 	bcopy((char *)server->h_addr,
 	(char *)&serveraddr.sin_addr.s_addr, server->h_length);
 	serveraddr.sin_port = htons(portno);
-
-	/* send packet to Dreamscreen */
-	p = sendto(sockfd, packet, sizeof(packet), 0, (struct sockaddr *) &serveraddr, sizeof(serveraddr));	
-	if (choice == 10) 
+	
+	char rec[6000];
+	int fromlen = sizeof(serveraddr);
+	
+	//p = sendto(sockfd, phone_home, sizeof(phone_home), 0, (struct sockaddr *) &serveraddr, sizeof(serveraddr));
+	p = sendto(sockfd, packet, sizeof(packet), 0, (struct sockaddr *) &serveraddr, sizeof(serveraddr));
+	//p = recvfrom(sockfd, rec, sizeof(rec), 0, (struct sockaddr *) &serveraddr, &fromlen);
+	if (choice == 10) { 
 		p = sendto(sockfd, packet_rgb, sizeof(packet_rgb), 0, (struct sockaddr *) &serveraddr, sizeof(serveraddr));	
+	}
 	if (p < 0)
 		perror("ERROR: in sendto");
 	fflush(stdout);
