@@ -257,6 +257,7 @@ int dream() {
 			break;  
 		case 11:
 			assemble_packet(packet, special, 0x0A, 0x2A);
+			break;
 		default:
 			bzero(packet, sizeof(packet));
         }
