@@ -179,9 +179,8 @@ int dream() {
 	int members = 3;
 	int portno = 8888;
 
-	unsigned char prefix[] = { 0xFC, 0x06, 0x01, 0x11, 0x03 };
-	unsigned char special[] = { 0xFC, 0x06, 0x01, 0x21, 0x01 };
-	unsigned char phone_home[] = { 0xFC, 0x05, 0xFF, 0x30, 0x01, 0x0A, 0x2A};
+	unsigned char prefix[] = { 0xFC, 0x06, 0x01, 0x21, 0x03 };
+	unsigned char special[] = { 0xFC, 0x05, 0xFF, 0x30, 0x01 };
 
 	// Commands
 	unsigned char mode = 0x01;
@@ -256,11 +255,11 @@ int dream() {
 			assemble_packet_rgb(packet_rgb, prefix, red, green, blue);
 			break;  
 		case 11:
-<<<<<<< HEAD
 			assemble_packet(packet, special, 0x0A, 0x2A);
-=======
-			assemble_packet(packet, special, 0x0C, 0x01);
->>>>>>> a85317b3bed26e81145a8b63b514ca53f739cd11
+			break;
+		case 12:
+			prefix[4] = 0x01;
+			assemble_packet(packet, prefix, 0x0C, 0x01);
 			break;
 		default:
 			bzero(packet, sizeof(packet));
@@ -305,14 +304,16 @@ int dream() {
 	(char *)&serveraddr.sin_addr.s_addr, server->h_length);
 	serveraddr.sin_port = htons(portno);
 	
-	char rec[6000];
+	char rec[200];
 	int fromlen = sizeof(serveraddr);
-	
+	int backlog = 1000;
 	//p = sendto(sockfd, phone_home, sizeof(phone_home), 0, (struct sockaddr *) &serveraddr, sizeof(serveraddr));
-	p = sendto(sockfd, packet, sizeof(packet), 0, (struct sockaddr *) &serveraddr, sizeof(serveraddr));
-	//p = recvfrom(sockfd, rec, sizeof(rec), 0, (struct sockaddr *) &serveraddr, &fromlen);
+	connect(sockfd, (struct sockaddr*) &serveraddr, sizeof(serveraddr));
+	p = send(sockfd, packet, sizeof(packet), 0);
+	//read(sockfd, rec, 200);
+	printf("clear\n");
 	if (choice == 10) { 
-		p = sendto(sockfd, packet_rgb, sizeof(packet_rgb), 0, (struct sockaddr *) &serveraddr, sizeof(serveraddr));	
+		p = send(sockfd, packet_rgb, sizeof(packet_rgb), 0);	
 	}
 	if (p < 0)
 		perror("ERROR: in sendto");
